@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import icon from "../../assets/main/icon.png";
 
 interface LogoProps {
   className?: string;
@@ -23,11 +24,11 @@ export const Logo = ({ className, showText = true, size = "md" }: LogoProps) => 
     <div className={cn("flex items-center gap-3", className)}>
       {/* Logo Icon - Orange square with "IQ" */}
       <div className={cn(
-        "rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-bold",
+        "rounded-lg  flex items-center justify-center  font-bold",
         iconSizes[size],
         size === "sm" ? "text-sm" : size === "md" ? "text-base" : "text-lg"
       )}>
-        IQ
+      <img src={icon} alt="" />
       </div>
       
       {showText && (
