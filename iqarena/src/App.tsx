@@ -1,4 +1,5 @@
 import { Toaster } from "@/components/ui/toaster";
+import { Toaster as HotToaster } from "react-hot-toast";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -23,11 +24,11 @@ const queryClient = new QueryClient();
 function LoginRedirect() {
   const { isAuthenticated, role } = useAuth();
   if (isAuthenticated) {
-    if (role === "student") return <Navigate to="/student-dashboard" replace />;
-    if (role === "faculty") return <Navigate to="/faculty-dashboard" replace />;
-    if (role === "hod") return <Navigate to="/hod-dashboard" replace />;
-    if (role === "admin") return <Navigate to="/admin-dashboard" replace />;
-    if (role === "super-admin") return <Navigate to="/super-admin-dashboard" replace />;
+    if (role === "student") return <Navigate to="/student" replace />;
+    if (role === "faculty") return <Navigate to="/faculty" replace />;
+    if (role === "hod") return <Navigate to="/hod" replace />;
+    if (role === "admin") return <Navigate to="/admin" replace />;
+    if (role === "super-admin") return <Navigate to="/super-admin" replace />;
     return <Navigate to="/" replace />;
   }
   return <Index />;
@@ -36,7 +37,8 @@ function LoginRedirect() {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <Toaster />
+  <HotToaster position="top-center" />
+  <Toaster />
       <Sonner />
       <AuthProvider>
         <BrowserRouter>
