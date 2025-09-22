@@ -7,7 +7,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Index from "./pages/Index";
 import StudentDashboardPage from "./pages/StudentDashboardPage";
-import FacultyDashboardPage from "./pages/FacultyDashboardPage";
+import { FacultyDashboard } from "./components/dashboard/faculty-dashboard";
 import HODDashboardPage from "./pages/HODDashboardPage";
 import AdminDashboardPage from "./pages/AdminDashboardPage";
 import SuperAdminDashboardPage from "./pages/SuperAdminDashboardPage";
@@ -48,7 +48,7 @@ const App = () => (
               <Route path="/student" element={<StudentDashboardPage />} />
             </Route>
             <Route element={<ProtectedRoute allowedRoles={["faculty"]} />}>
-              <Route path="/faculty" element={<FacultyDashboardPage />} />
+              <Route path="/faculty" element={<FacultyDashboard />} />
             </Route>
             <Route element={<ProtectedRoute allowedRoles={["hod"]} />}>
               <Route path="/hod" element={<HODDashboardPage />} />
