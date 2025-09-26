@@ -29,7 +29,7 @@ function LoginRedirect() {
     if (role === "hod") return <Navigate to="/hod" replace />;
     if (role === "admin") return <Navigate to="/admin" replace />;
     if (role === "super-admin") return <Navigate to="/super-admin" replace />;
-    return <Navigate to="/" replace />;
+    return <Navigate to="/login" replace />;
   }
   return <Index />;
 }
@@ -56,7 +56,7 @@ const App = () => (
             <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
               <Route path="/admin" element={<AdminDashboardPage />} />
             </Route>
-            <Route element={<ProtectedRoute allowedRoles={["secretary","principal","vp"]} />}>
+            <Route element={<ProtectedRoute allowedRoles={["super-admin"]} />}>
               <Route path="/super-admin" element={<SuperAdminDashboardPage />} />
             </Route>
             <Route element={<ProtectedRoute />}>

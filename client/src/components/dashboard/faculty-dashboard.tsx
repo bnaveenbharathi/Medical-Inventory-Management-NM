@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { StatsCard } from "./stats-card";
 import { BookOpen, Users, BarChart3, Plus, Edit, Eye, FileText } from "lucide-react";
-import Header from "./faculty/header"
+import Header from "./faculty/Header"
 import { TopicsSection } from "./faculty/Topic";
 import { useState } from "react";
 const mockStats = {
@@ -57,7 +57,7 @@ export const FacultyDashboard = () => {
       <div className="max-w-7xl mx-auto p-6 space-y-6">
         {/* Welcome Message */}
         <Card>
-          <CardContent className="p-3">
+          <CardContent className="p-3 sticky top-0">
             <div className="flex items-center justify-between">
               <div className="items-center flex">
                 <h2 className="text-xl font-semibold text-foreground ">Welcome back, Alex!</h2> 

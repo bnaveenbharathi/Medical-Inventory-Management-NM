@@ -22,9 +22,19 @@ app.use((req, res, next) => {
 
 app.use(express.json());
 
+
 // Auth routes
 const authRoutes = require('./routes/auth');
 app.use('/api/auth', authRoutes);
+
+
+// Department routes
+const deptRoutes = require('./routes/dept');
+app.use('/api/dept', deptRoutes);
+
+// Student upload routes
+const uploadStudentRoutes = require('./routes/uploadstudent');
+app.use('/api/student', uploadStudentRoutes);
 
 app.get('/', (req, res) => {
 	res.send('Server is running and connected to MySQL!');

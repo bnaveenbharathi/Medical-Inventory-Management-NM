@@ -113,7 +113,8 @@ export const LoginForm = () => {
           else if (role === "faculty") navigate("/faculty");
           else if (role === "hod") navigate("/hod");
           else if (role === "admin") navigate("/admin"); 
-          else navigate("/");
+          else if (role === "super-admin") navigate("/super-admin"); 
+          else navigate("/login");
         } else {
           toast.error(data.error || "Login failed", { position: "top-center" });
         }
