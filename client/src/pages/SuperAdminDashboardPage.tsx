@@ -120,7 +120,23 @@ export default function SuperAdminApp() {
       .catch(() => setDepartments([]));
   }, []);
   const [faculty, setFaculty] = useState(initialFaculty);
-  const [students, setStudents] = useState(initialStudents);
+  const [students, setStudents] = useState([]);
+  // Fetch students from API on mount
+  useEffect(() => {
+    fetch(`${API_BASE}/student/list`)
+      .then(res => res.json())
+      .then(data => {
+        setStudents(data.map(s => ({
+          id: s.id,
+          roll: s.roll_no,
+          name: s.name,
+          email: s.email,
+          department: s.department_name,
+          year: s.year
+        })));
+      })
+      .catch(() => setStudents([]));
+  }, []);
   const [questions, setQuestions] = useState(initialQuestions);
   const [tests, setTests] = useState(initialTests);
 
