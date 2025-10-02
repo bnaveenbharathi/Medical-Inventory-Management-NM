@@ -1,7 +1,5 @@
-// MySQL connection
 const db = require('../config/conn');
 
-// GET /departments
 exports.getDepartments = (req, res) => {
 	const sql = `
 		SELECT d.id, d.short_name, d.full_name,

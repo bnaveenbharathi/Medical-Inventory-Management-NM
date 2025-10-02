@@ -4,6 +4,7 @@ import { Button } from "../components/ui/button";
 import icon from "../../public/icon.png"
 const API_BASE = import.meta.env.VITE_API_BASE;
 
+
 function parseCSV(text) {
   const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   if (!lines.length) return [];
@@ -30,7 +31,6 @@ function exportToCSV(filename, rows) {
   URL.revokeObjectURL(url);
 }
 
-// Small inline Modal component to avoid external dependencies
 const Modal = ({ open, title, onClose, children }) => {
   if (!open) return null;
   return (
@@ -99,6 +99,44 @@ const initialTests = [
 ];
 
 export default function SuperAdminApp() {
+  // Add Student Modal state
+  const [addStudentModalOpen, setAddStudentModalOpen] = useState(false);
+  const [newStudent, setNewStudent] = useState({ roll_no: '', name: '', email: '', department_id: '', year: '' });
+  const [addStudentLoading, setAddStudentLoading] = useState(false);
+  async function handleAddStudent() {
+    setAddStudentLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/student/add`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newStudent)
+      });
+      const result = await res.json();
+      if (res.ok && result.success) {
+        // Fetch department name for display
+        const deptObj = departments.find(d => d.id == newStudent.department_id);
+        setStudents(s => [
+          {
+            id: result.insertedId,
+            roll: newStudent.roll_no,
+            name: newStudent.name,
+            email: newStudent.email,
+            department: deptObj ? deptObj.code : '',
+            year: newStudent.year
+          },
+          ...s
+        ]);
+        setAddStudentModalOpen(false);
+        setNewStudent({ roll_no: '', name: '', email: '', department_id: '', year: '' });
+        alert('Student added successfully.');
+      } else {
+        alert(result.error || 'Failed to add student.');
+      }
+    } catch (err) {
+      alert('Error adding student: ' + (err?.message || 'Unknown error'));
+    }
+    setAddStudentLoading(false);
+  }
   const [view, setView] = useState("dashboard");
 
   function handleLogout() {
@@ -265,7 +303,7 @@ export default function SuperAdminApp() {
       });
       const result = await res.json();
       if (result.success) {
-        // Add generated id for local state
+     
         const studentsWithId = newStudents.map((stu, idx) => ({
           ...stu,
           id: Date.now() + idx
@@ -286,14 +324,41 @@ export default function SuperAdminApp() {
     }
   }
 
-  function removeStudent(id) {
+  async function removeStudent(id) {
     if (!confirm("Remove student?")) return;
-    setStudents((s) => s.filter((x) => x.id !== id));
+    try {
+      const res = await fetch(`${API_BASE}/student/delete/${id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const result = await res.json();
+      if (res.ok && result.success) {
+        setStudents((s) => s.filter((x) => x.id !== id));
+        alert('Student deleted successfully.');
+      } else {
+        alert(result.error || 'Failed to delete student.');
+      }
+    } catch (err) {
+      alert('Error deleting student: ' + (err?.message || 'Unknown error'));
+    }
   }
 
-  function resetStudentPassword(id) {
-    const s = students.find((x) => x.id === id);
-    alert(`Password reset initiated for ${s?.name || id}. Email will be sent.`);
+  async function resetStudentPassword(id) {
+    if (!confirm("Reset password for this student?")) return;
+    try {
+      const res = await fetch(`${API_BASE}/student/reset-password/${id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const result = await res.json();
+      if (result.success) {
+        alert('Password reset successfully.');
+      } else {
+        alert(result.error || 'Failed to reset password.');
+      }
+    } catch (err) {
+      alert('Error resetting password: ' + err.message);
+    }
   }
 
   /* -------------------- Questions -------------------- */
@@ -363,7 +428,6 @@ export default function SuperAdminApp() {
   /* -------------------- Reports -------------------- */
   const [reportFilter, setReportFilter] = useState({ department: "", testId: "", from: "", to: "" });
   function generateReportCSV() {
-    // For demo: produce student-wise scores mock
     const rows = students.map((s) => ({ roll: s.roll, name: s.name, department: s.department, avg: Math.floor(Math.random() * 50) + 50 }));
     exportToCSV("iqarena_report_students.csv", rows);
   }
@@ -377,6 +441,22 @@ const filteredStudents = useMemo(() => {
     (!studentFilters.year || String(s.year) === String(studentFilters.year))
   );
 }, [students, studentFilters]);
+  const [studentEditModalOpen, setStudentEditModalOpen] = useState(false);
+  const [editingStudent, setEditingStudent] = useState<any>(null);
+
+  function openStudentEditModal(r: any): void {
+    setEditingStudent(r);
+    setStudentEditModalOpen(true);
+  }
+
+  // Reset student edit modal state when switching away from students view
+  useEffect(() => {
+    if (view !== "students") {
+      setStudentEditModalOpen(false);
+      setEditingStudent(null);
+    }
+  }, [view]);
+
   /* -------------------- Render -------------------- */
   return (
     <div className="flex min-h-screen bg-gray-50 text-slate-800">
@@ -404,21 +484,50 @@ const filteredStudents = useMemo(() => {
       <div className="flex-1 flex flex-col">
         {/* Topbar */}
         <header className="flex items-center justify-end px-6 py-4 bg-white border-b">
-         
           <div className="flex items-center gap-4">
             <div className="text-sm text-slate-600">Super Admin</div>
             <Button variant="outline" size="sm" className="flex items-center gap-2" title="Reset Password">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 17a2 2 0 100-4 2 2 0 000 4zm6-7V7a6 6 0 10-12 0v3a2 2 0 00-2 2v7a2 2 0 002 2h12a2 2 0 002-2v-7a2 2 0 00-2-2zm-8-3a4 4 0 118 0v3" /></svg>
-            
             </Button>
             <Button variant="outline" size="sm" className="flex items-center gap-2" onClick={handleLogout} title="Logout">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H7a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1" /></svg>
-            
             </Button>
           </div>
         </header>
 
         <main className="p-6 flex-1 overflow-auto">
+          {/* Student Edit Modal (only for students view) */}
+          {view === "students" && (
+            <Modal open={studentEditModalOpen} title={editingStudent?.id ? "Edit Student" : "View Student"} onClose={() => setStudentEditModalOpen(false)}>
+              {editingStudent && (
+                <StudentEditForm
+                  initial={editingStudent}
+                  departments={departments}
+                  onCancel={() => setStudentEditModalOpen(false)}
+                  onSave={async (data) => {
+                    const payload = {
+                      roll_no: data.roll,
+                      name: data.name,
+                      email: data.email,
+                      department_id: departments.find(d => d.code === data.department)?.id || data.department,
+                      year: data.year
+                    };
+                    const res = await fetch(`${API_BASE}/student/update/${editingStudent.id}`, {
+                      method: "PUT",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify(payload)
+                    });
+                    if (res.ok) {
+                      setStudents((ss) => ss.map((s) => s.id === editingStudent.id ? { ...s, ...data } : s));
+                      setStudentEditModalOpen(false);
+                    } else {
+                      alert("Failed to update student info");
+                    }
+                  }}
+                />
+              )}
+            </Modal>
+          )}
           {view === "dashboard" && (
             <div className="space-y-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
@@ -521,9 +630,33 @@ const filteredStudents = useMemo(() => {
     <div className="flex items-center justify-between">
       <h2 className="text-xl font-semibold">Students</h2>
       <div className="flex gap-2 uploadcsv-students">
+        <Button onClick={() => setAddStudentModalOpen(true)} className="bg-orange-600 text-white">Add Student</Button>
         <label htmlFor="studentsCSV" className="cursor-pointer"><Button onClick={() => setStudentsModalOpen(true)}>Upload CSV</Button></label>
+        <a href="/files/users.csv" download><Button variant="outline">Download Template</Button></a>
       </div>
     </div>
+    {/* Add Student Modal */}
+    <Modal open={addStudentModalOpen} title="Add Student" onClose={() => setAddStudentModalOpen(false)}>
+      <div className="space-y-3">
+        <label className="text-sm">Roll No</label>
+        <input value={newStudent.roll_no} onChange={e => setNewStudent(s => ({ ...s, roll_no: e.target.value }))} className="border px-3 py-2 rounded w-full" />
+        <label className="text-sm">Name</label>
+        <input value={newStudent.name} onChange={e => setNewStudent(s => ({ ...s, name: e.target.value }))} className="border px-3 py-2 rounded w-full" />
+        <label className="text-sm">Email</label>
+        <input value={newStudent.email} onChange={e => setNewStudent(s => ({ ...s, email: e.target.value }))} className="border px-3 py-2 rounded w-full" />
+        <label className="text-sm">Department</label>
+        <select value={newStudent.department_id} onChange={e => setNewStudent(s => ({ ...s, department_id: e.target.value }))} className="border px-3 py-2 rounded w-full">
+          <option value="">-- select --</option>
+          {departments.map(d => <option key={d.id} value={d.id}>{d.code} - {d.name}</option>)}
+        </select>
+        <label className="text-sm">Year</label>
+        <input type="number" value={newStudent.year} onChange={e => setNewStudent(s => ({ ...s, year: e.target.value }))} className="border px-3 py-2 rounded w-full" />
+        <div className="flex gap-2 mt-4">
+          <Button onClick={handleAddStudent} disabled={addStudentLoading}>Add</Button>
+          <Button variant="outline" onClick={() => setAddStudentModalOpen(false)} disabled={addStudentLoading}>Cancel</Button>
+        </div>
+      </div>
+    </Modal>
 
     {/* Filter Inputs */}
     <Card className="mb-4 p-4">
@@ -548,7 +681,7 @@ const filteredStudents = useMemo(() => {
           onChange={e => setStudentFilters(f => ({ ...f, department: e.target.value }))}
         >
           <option value="">All Departments</option>
-          {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
+          {departments.map(d => <option key={d.id} value={d.code}>{d.name}</option>)}
         </select>
         <input
           type="number"
@@ -707,7 +840,7 @@ const filteredStudents = useMemo(() => {
         rows={filteredStudents}
         actions={(r) => (
           <div className="flex gap-2">
-            <Button size="sm" variant="ghost" title="View">👁</Button>
+            <Button size="sm" variant="ghost" title="View" onClick={() => openStudentEditModal(r)}>👁</Button>
             <Button size="sm" variant="ghost" title="Reset Password" onClick={() => resetStudentPassword(r.id)}>🔑</Button>
             <Button size="sm" variant="destructive" title="Remove" onClick={() => removeStudent(r.id)}>❌</Button>
           </div>
@@ -967,6 +1100,46 @@ function FacultyForm({ initial, onSave, onCancel, departments }) {
       <div className="flex gap-2 mt-4">
         <Button onClick={() => onSave(data)}>Save</Button>
         <Button variant="outline" onClick={onCancel}>Cancel</Button>
+      </div>
+    </div>
+  );
+}
+
+// Student Edit Form
+function StudentEditForm({ initial, onSave, onCancel, departments }) {
+  const [data, setData] = useState(initial || { roll: "", name: "", email: "", department: "", year: "" });
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
+  useEffect(() => setData(initial || { roll: "", name: "", email: "", department: "", year: "" }), [initial]);
+  return (
+    <div>
+      <label className="text-sm">Roll No</label>
+      <input value={data.roll} onChange={e => setData(d => ({ ...d, roll: e.target.value }))} className="border px-3 py-2 rounded w-full mb-2" />
+      <label className="text-sm">Name</label>
+      <input value={data.name} onChange={e => setData(d => ({ ...d, name: e.target.value }))} className="border px-3 py-2 rounded w-full mb-2" />
+      <label className="text-sm">Email</label>
+      <input value={data.email} onChange={e => setData(d => ({ ...d, email: e.target.value }))} className="border px-3 py-2 rounded w-full mb-2" />
+      <label className="text-sm">Department</label>
+      <select value={data.department} onChange={e => setData(d => ({ ...d, department: e.target.value }))} className="border px-3 py-2 rounded w-full mb-2">
+        <option value="">-- select --</option>
+        {departments.map((d) => <option key={d.id} value={d.code}>{d.name}</option>)}
+      </select>
+      <label className="text-sm">Year</label>
+      <input type="number" value={data.year} onChange={e => setData(d => ({ ...d, year: e.target.value }))} className="border px-3 py-2 rounded w-full mb-2" />
+      {message && <div className={`mb-2 text-sm ${message.startsWith("Success") ? "text-green-600" : "text-red-600"}`}>{message}</div>}
+      <div className="flex gap-2 mt-4">
+        <Button disabled={loading} onClick={async () => {
+          setLoading(true);
+          setMessage("");
+          try {
+            await onSave(data);
+            setMessage("Success: Student info updated.");
+          } catch (err) {
+            setMessage("Error: " + (err?.message || "Failed to update."));
+          }
+          setLoading(false);
+        }}>Save</Button>
+        <Button variant="outline" onClick={onCancel} disabled={loading}>Cancel</Button>
       </div>
     </div>
   );

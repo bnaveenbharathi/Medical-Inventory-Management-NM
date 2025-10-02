@@ -14,9 +14,13 @@ app.use((req, res, next) => {
 	res.header('Access-Control-Allow-Headers', 'Content-Type,Authorization');
 	if (req.method === 'OPTIONS') return res.sendStatus(200);
 	
-	if (req.path.startsWith('/api/') && req.method !== 'GET' && !req.is('application/json')) {
-		return res.status(415).json({ error: 'Only application/json is allowed' });
-	}
+		if (
+			req.path.startsWith('/api/') &&
+			['POST', 'PUT', 'PATCH'].includes(req.method) &&
+			!req.is('application/json')
+		) {
+			return res.status(415).json({ error: 'Only application/json is allowed' });
+		}
 	next();
 });
 
@@ -32,7 +36,7 @@ app.use('/api/auth', authRoutes);
 const deptRoutes = require('./routes/dept');
 app.use('/api/dept', deptRoutes);
 
-// Student upload routes
+// Student  routes
 const uploadStudentRoutes = require('./routes/uploadstudent');
 app.use('/api/student', uploadStudentRoutes);
 
