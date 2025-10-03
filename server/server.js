@@ -37,8 +37,8 @@ const deptRoutes = require('./routes/dept');
 app.use('/api/dept', deptRoutes);
 
 // Student  routes
-const uploadStudentRoutes = require('./routes/uploadstudent');
-app.use('/api/student', uploadStudentRoutes);
+const  userRoutes = require('./routes/user');
+app.use('/api/users', userRoutes);
 
 app.get('/', (req, res) => {
 	res.send('Server is running and connected to MySQL!');

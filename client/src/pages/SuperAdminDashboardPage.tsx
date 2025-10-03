@@ -99,6 +99,46 @@ const initialTests = [
 ];
 
 export default function SuperAdminApp() {
+  // Add Staff Modal state
+  const [addStaffModalOpen, setAddStaffModalOpen] = useState(false);
+  const [newStaff, setNewStaff] = useState({ roll_no: '', name: '', email: '', department_id: '' });
+  const [addStaffLoading, setAddStaffLoading] = useState(false);
+  async function handleAddStaff() {
+    setAddStaffLoading(true);
+    try {
+      const payload = {
+        roll_no: newStaff.roll_no,
+        name: newStaff.name,
+        email: newStaff.email,
+        department_id: newStaff.department_id
+      };
+      const res = await fetch(`${API_BASE}/users/add-staff`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const result = await res.json();
+      if (res.ok && result.success) {
+        setFaculty(f => [
+          {
+            name: newStaff.name,
+            roll_no: newStaff.roll_no, 
+            email: newStaff.email,
+            department_id: newStaff.department_id
+          },
+          ...f
+        ]);
+        setAddStaffModalOpen(false);
+        setNewStaff({ roll_no: '', name: '', email: '', department_id: '' });
+        alert('Staff added successfully.');
+      } else {
+        alert(result.error || 'Failed to add staff.');
+      }
+    } catch (err) {
+      alert('Error adding staff: ' + (err?.message || 'Unknown error'));
+    }
+    setAddStaffLoading(false);
+  }
   // Add Student Modal state
   const [addStudentModalOpen, setAddStudentModalOpen] = useState(false);
   const [newStudent, setNewStudent] = useState({ roll_no: '', name: '', email: '', department_id: '', year: '' });
@@ -106,19 +146,18 @@ export default function SuperAdminApp() {
   async function handleAddStudent() {
     setAddStudentLoading(true);
     try {
-      const res = await fetch(`${API_BASE}/student/add`, {
+      const res = await fetch(`${API_BASE}/users/add`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(newStudent)
       });
       const result = await res.json();
       if (res.ok && result.success) {
-        // Fetch department name for display
         const deptObj = departments.find(d => d.id == newStudent.department_id);
         setStudents(s => [
           {
             id: result.insertedId,
-            roll: newStudent.roll_no,
+            roll_no: newStudent.roll_no,
             name: newStudent.name,
             email: newStudent.email,
             department: deptObj ? deptObj.code : '',
@@ -139,6 +178,12 @@ export default function SuperAdminApp() {
   }
   const [view, setView] = useState("dashboard");
 
+  // Super Admin password reset modal state
+  const [adminPwdModalOpen, setAdminPwdModalOpen] = useState(false);
+  const [adminPwdValue, setAdminPwdValue] = useState("");
+  const [adminPwdLoading, setAdminPwdLoading] = useState(false);
+  const [adminUserId, setAdminUserId] = useState(null); // super admin id (for own reset)
+
   function handleLogout() {
     // Clear session and redirect to login
     localStorage.removeItem("jwt_token");
@@ -152,16 +197,44 @@ export default function SuperAdminApp() {
     fetch(`${API_BASE}/dept/departments`)
       .then(res => res.json())
       .then(data => {
-        // Map API fields to expected shape
-        setDepartments(data.map(d => ({ id: d.id, code: d.short_name, name: d.full_name })));
+        // Map API fields to expected shape, include hod_name
+        setDepartments(data.map(d => ({
+          id: d.id,
+          code: d.short_name,
+          name: d.full_name,
+          hodName: d.hod_name
+        })));
       })
       .catch(() => setDepartments([]));
   }, []);
-  const [faculty, setFaculty] = useState(initialFaculty);
+  const [faculty, setFaculty] = useState([]);
+  const [facultyFilters, setFacultyFilters] = useState({ roll: '', name: '', department: '' });
+  useEffect(() => {
+    fetch(`${API_BASE}/users/faculty-list`)
+      .then(res => res.json())
+      .then(data => {
+        setFaculty(data.map(f => ({
+          id: f.id,
+          roll: f.roll_no,
+          name: f.name,
+          email: f.email,
+          department: f.department_name
+        })));
+      })
+      .catch(() => setFaculty([]));
+  }, []);
+  // Filtered faculty
+  const filteredFaculty = useMemo(() => {
+    return faculty.filter(f =>
+      (!facultyFilters.roll || f.roll?.toLowerCase().includes(facultyFilters.roll.toLowerCase())) &&
+      (!facultyFilters.name || f.name?.toLowerCase().includes(facultyFilters.name.toLowerCase())) &&
+      (!facultyFilters.department || f.department === facultyFilters.department)
+    );
+  }, [faculty, facultyFilters]);
   const [students, setStudents] = useState([]);
   // Fetch students from API on mount
   useEffect(() => {
-    fetch(`${API_BASE}/student/list`)
+    fetch(`${API_BASE}/users/list`)
       .then(res => res.json())
       .then(data => {
         setStudents(data.map(s => ({
@@ -226,17 +299,72 @@ export default function SuperAdminApp() {
   function saveDepartment(data) {
     if (!data.name || !data.code) return alert("Please enter department name and code");
     if (data.id) {
-      setDepartments((d) => d.map((x) => (x.id === data.id ? { ...x, ...data } : x)));
+      const payload = {
+        short_name: data.code,
+        full_name: data.name,
+        hod_id: data.hodId || null
+      };
+      fetch(`${API_BASE}/dept/update-department/${data.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+        .then(res => res.json())
+        .then(result => {
+          if (result.success) {
+            setDepartments((d) => d.map((x) => (x.id === data.id ? { ...x, ...data } : x)));
+            setDeptModalOpen(false);
+          } else {
+            alert(result.error || 'Failed to update department');
+          }
+        })
+        .catch(err => {
+          alert('Error updating department: ' + (err?.message || 'Unknown error'));
+        });
     } else {
-      const id = Math.max(0, ...departments.map((d) => d.id)) + 1;
-      setDepartments((d) => [...d, { ...data, id }]);
+      const payload = {
+        short_name: data.code,
+        full_name: data.name,
+        hod_id: data.hodId || null
+      };
+      fetch(`${API_BASE}/dept/add-department`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+        .then(res => res.json())
+        .then(result => {
+          if (result.success) {
+            setDepartments((d) => [...d, { ...data, id: result.insertedId }]);
+            setDeptModalOpen(false);
+          } else {
+            alert(result.error || 'Failed to add department');
+          }
+        })
+        .catch(err => {
+          alert('Error adding department: ' + (err?.message || 'Unknown error'));
+        });
     }
-    setDeptModalOpen(false);
   }
 
   function removeDepartment(id) {
     if (!confirm("Delete department? This will not delete faculty/students automatically.")) return;
-    setDepartments((d) => d.filter((x) => x.id !== id));
+    fetch(`${API_BASE}/dept/delete-department/${id}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' }
+    })
+      .then(res => res.json())
+      .then(result => {
+        if (result.success) {
+          setDepartments((d) => d.filter((x) => x.id !== id));
+          alert('Department deleted successfully.');
+        } else {
+          alert(result.error || 'Failed to delete department.');
+        }
+      })
+      .catch(err => {
+        alert('Error deleting department: ' + (err?.message || 'Unknown error'));
+      });
   }
 
   /* -------------------- Faculty UI -------------------- */
@@ -248,22 +376,76 @@ export default function SuperAdminApp() {
   function saveFaculty(data) {
     if (!data.name || !data.email) return alert("Please provide name and email");
     if (data.id) {
-      setFaculty((f) => f.map((x) => (x.id === data.id ? { ...x, ...data } : x)));
+      // Update faculty via API
+      const payload = {
+        roll_no: data.roll,
+        name: data.name,
+        email: data.email,
+        department_id: departments.find(d => d.code === data.department)?.id || data.department
+      };
+      fetch(`${API_BASE}/users/update-faculty/${data.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+        .then(res => res.json())
+        .then(result => {
+          if (result.success) {
+            setFaculty((f) => f.map((x) => (x.id === data.id ? { ...x, ...data } : x)));
+            setFacultyModalOpen(false);
+          } else {
+            alert(result.error || 'Failed to update faculty');
+          }
+        })
+        .catch(err => {
+          alert('Error updating faculty: ' + (err?.message || 'Unknown error'));
+        });
     } else {
       const id = Math.max(0, ...faculty.map((f) => f.id)) + 1;
       setFaculty((f) => [...f, { ...data, id }]);
+      setFacultyModalOpen(false);
     }
-    setFacultyModalOpen(false);
   }
 
   function resetFacultyPassword(id) {
-    const f = faculty.find((x) => x.id === id);
-    alert(`Password reset initiated for ${f?.name || id}. Email will be sent.`);
+    const password = prompt('Enter new password for this staff:');
+    if (!password) return;
+    fetch(`${API_BASE}/users/reset-password-admin/${id}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password })
+    })
+      .then(res => res.json())
+      .then(result => {
+        if (result.success) {
+          alert('Password reset successfully.');
+        } else {
+          alert(result.error || 'Failed to reset password.');
+        }
+      })
+      .catch(err => {
+        alert('Error resetting password: ' + (err?.message || 'Unknown error'));
+      });
   }
 
   function deleteFaculty(id) {
     if (!confirm("Remove faculty profile?")) return;
-    setFaculty((f) => f.filter((x) => x.id !== id));
+    fetch(`${API_BASE}/users/delete-faculty/${id}`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' }
+    })
+      .then(res => res.json())
+      .then(result => {
+        if (result.success) {
+          setFaculty((f) => f.filter((x) => x.id !== id));
+          alert('Faculty deleted successfully.');
+        } else {
+          alert(result.error || 'Failed to delete faculty.');
+        }
+      })
+      .catch(err => {
+        alert('Error deleting faculty: ' + (err?.message || 'Unknown error'));
+      });
   }
 
   /* -------------------- Students CSV upload workflow -------------------- */
@@ -296,7 +478,7 @@ export default function SuperAdminApp() {
   role: 1
     }));
     try {
-      const res = await fetch(`${API_BASE}/student/upload`, {
+      const res = await fetch(`${API_BASE}/users/upload`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ students: newStudents })
@@ -327,7 +509,7 @@ export default function SuperAdminApp() {
   async function removeStudent(id) {
     if (!confirm("Remove student?")) return;
     try {
-      const res = await fetch(`${API_BASE}/student/delete/${id}`, {
+      const res = await fetch(`${API_BASE}/users/delete/${id}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -346,7 +528,7 @@ export default function SuperAdminApp() {
   async function resetStudentPassword(id) {
     if (!confirm("Reset password for this student?")) return;
     try {
-      const res = await fetch(`${API_BASE}/student/reset-password/${id}`, {
+      const res = await fetch(`${API_BASE}/users/reset-password/${id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -449,13 +631,34 @@ const filteredStudents = useMemo(() => {
     setStudentEditModalOpen(true);
   }
 
-  // Reset student edit modal state when switching away from students view
   useEffect(() => {
     if (view !== "students") {
       setStudentEditModalOpen(false);
       setEditingStudent(null);
     }
   }, [view]);
+
+  async function handleSuperAdminResetPassword() {
+    if (!adminPwdValue) return alert("Please enter a password.");
+    setAdminPwdLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/users/reset-password-admin/${adminUserId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: adminPwdValue })
+      });
+      const result = await res.json();
+      if (result.success) {
+        alert('Password reset successfully.');
+        setAdminPwdModalOpen(false);
+      } else {
+        alert(result.error || 'Failed to reset password.');
+      }
+    } catch (err) {
+      alert('Error resetting password: ' + (err?.message || 'Unknown error'));
+    }
+    setAdminPwdLoading(false);
+  }
 
   /* -------------------- Render -------------------- */
   return (
@@ -486,7 +689,15 @@ const filteredStudents = useMemo(() => {
         <header className="flex items-center justify-end px-6 py-4 bg-white border-b">
           <div className="flex items-center gap-4">
             <div className="text-sm text-slate-600">Super Admin</div>
-            <Button variant="outline" size="sm" className="flex items-center gap-2" title="Reset Password">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2"
+              title="Reset Password"
+              onClick={() => {
+                setAdminPwdModalOpen(true);
+              }}
+            >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 17a2 2 0 100-4 2 2 0 000 4zm6-7V7a6 6 0 10-12 0v3a2 2 0 00-2 2v7a2 2 0 002 2h12a2 2 0 002-2v-7a2 2 0 00-2-2zm-8-3a4 4 0 118 0v3" /></svg>
             </Button>
             <Button variant="outline" size="sm" className="flex items-center gap-2" onClick={handleLogout} title="Logout">
@@ -512,7 +723,7 @@ const filteredStudents = useMemo(() => {
                       department_id: departments.find(d => d.code === data.department)?.id || data.department,
                       year: data.year
                     };
-                    const res = await fetch(`${API_BASE}/student/update/${editingStudent.id}`, {
+                    const res = await fetch(`${API_BASE}/users/update/${editingStudent.id}`, {
                       method: "PUT",
                       headers: { "Content-Type": "application/json" },
                       body: JSON.stringify(payload)
@@ -587,10 +798,20 @@ const filteredStudents = useMemo(() => {
                   <Button onClick={openAddDept}>Add Department</Button>
                 </div>
               </div>
+              {/* Total Staff and Students Summary */}
+              <Card className="mb-2 p-3 bg-orange-50 border-orange-200">
+                <span className="font-semibold text-orange-700">
+                  Total Staff: {faculty.length} &nbsp;|&nbsp; Total Students: {students.length}
+                </span>
+              </Card>
               <Card>
                 <Table
-                  columns={[{ key: "code", title: "Code" }, { key: "name", title: "Name" }, { key: "hodId", title: "HOD" }, { key: "facultyCount", title: "Faculty" }, { key: "studentCount", title: "Students" }]}
-                  rows={departments}
+                  columns={[{ key: "code", title: "Code" }, { key: "name", title: "Name" }, { key: "hodName", title: "HOD" }, { key: "facultyCount", title: "Faculty" }, { key: "studentCount", title: "Students" }]}
+                  rows={departments.map(dept => ({
+                    ...dept,
+                    facultyCount: faculty.filter(f => f.department === dept.code || f.department === dept.name).length,
+                    studentCount: students.filter(s => s.department === dept.code || s.department === dept.name).length
+                  }))}
                   actions={(r) => (
                     <div className="flex gap-2">
                       <Button size="sm" onClick={() => { setEditingDept(r); setDeptModalOpen(true); }}>Edit</Button>
@@ -607,18 +828,79 @@ const filteredStudents = useMemo(() => {
               <div className="flex items-center justify-between">
                 <h2 className="text-xl font-semibold">Faculty / Staff</h2>
                 <div className="flex gap-2">
-                  <Button onClick={openAddFaculty}>Add Faculty</Button>
+                  <Button onClick={() => setAddStaffModalOpen(true)}>Add Staff</Button>
                 </div>
+              {/* Add Staff Modal */}
+              <Modal open={addStaffModalOpen} title="Add Staff" onClose={() => setAddStaffModalOpen(false)}>
+                <div className="space-y-3">
+                  <label className="text-sm">Roll No</label>
+                  <input value={newStaff.roll_no} onChange={e => setNewStaff(s => ({ ...s, roll_no: e.target.value }))} className="border px-3 py-2 rounded w-full" />
+                  <label className="text-sm">Name</label>
+                  <input value={newStaff.name} onChange={e => setNewStaff(s => ({ ...s, name: e.target.value }))} className="border px-3 py-2 rounded w-full" />
+                  <label className="text-sm">Email</label>
+                  <input value={newStaff.email} onChange={e => setNewStaff(s => ({ ...s, email: e.target.value }))} className="border px-3 py-2 rounded w-full" />
+                  <label className="text-sm">Department</label>
+                  <select value={newStaff.department_id} onChange={e => setNewStaff(s => ({ ...s, department_id: e.target.value }))} className="border px-3 py-2 rounded w-full">
+                    <option value="">-- select --</option>
+                    {departments.map(d => <option key={d.id} value={d.id}>{d.code} - {d.name}</option>)}
+                  </select>
+                  <div className="flex gap-2 mt-4">
+                    <Button onClick={handleAddStaff} disabled={addStaffLoading}>Add</Button>
+                    <Button variant="outline" onClick={() => setAddStaffModalOpen(false)} disabled={addStaffLoading}>Cancel</Button>
+                  </div>
+                </div>
+              </Modal>
               </div>
+              {/* Total Staff Summary */}
+              <Card className="mb-2 p-3 bg-orange-50 border-orange-200">
+                <span className="font-semibold text-orange-700">
+                  {facultyFilters.department
+                    ? `Total Staff in ${facultyFilters.department}: ${filteredFaculty.length}`
+                    : `Total Staff: ${filteredFaculty.length}`}
+                </span>
+              </Card>
+              {/* Faculty Filters */}
+              <Card className="mb-4 p-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <input
+                    type="text"
+                    placeholder="Filter by Roll No"
+                    className="border px-3 py-2 rounded"
+                    value={facultyFilters.roll}
+                    onChange={e => setFacultyFilters(f => ({ ...f, roll: e.target.value }))}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Filter by Name"
+                    className="border px-3 py-2 rounded"
+                    value={facultyFilters.name}
+                    onChange={e => setFacultyFilters(f => ({ ...f, name: e.target.value }))}
+                  />
+                  <select
+                    className="border px-3 py-2 rounded"
+                    value={facultyFilters.department}
+                    onChange={e => setFacultyFilters(f => ({ ...f, department: e.target.value }))}
+                  >
+                    <option value="">All Departments</option>
+                    {departments.map(d => <option key={d.id} value={d.code}>{d.name}</option>)}
+                  </select>
+                </div>
+              </Card>
               <Card>
                 <Table
-                  columns={[{ key: "name", title: "Name" }, { key: "email", title: "Email" }, { key: "department", title: "Department" }]}
-                  rows={faculty}
+                  columns={[{ key: "roll", title: "Roll No" }, { key: "name", title: "Name" }, { key: "email", title: "Email" }, { key: "department", title: "Department" }]}
+                  rows={filteredFaculty}
                   actions={(r) => (
                     <div className="flex gap-2">
-                      <Button size="sm" onClick={() => { setEditingFaculty(r); setFacultyModalOpen(true); }}>Edit</Button>
-                      <Button size="sm" onClick={() => resetFacultyPassword(r.id)}>Reset Password</Button>
-                      <Button size="sm" variant="destructive" onClick={() => deleteFaculty(r.id)}>Remove</Button>
+                      <Button size="sm" variant="ghost" title="Edit" onClick={() => { setEditingFaculty(r); setFacultyModalOpen(true); }}>
+                        <span role="img" aria-label="edit">✏️</span>
+                      </Button>
+                      <Button size="sm" variant="ghost" title="Reset Password" onClick={() => resetFacultyPassword(r.id)}>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 17a2 2 0 100-4 2 2 0 000 4zm6-7V7a6 6 0 10-12 0v3a2 2 0 00-2 2v7a2 2 0 002 2h12a2 2 0 002-2v-7a2 2 0 00-2-2zm-8-3a4 4 0 118 0v3" /></svg>
+                      </Button>
+                      <Button size="sm" variant="ghost" title="Remove" onClick={() => deleteFaculty(r.id)}>
+                        <span role="img" aria-label="remove">❌</span>
+                      </Button>
                     </div>
                   )}
                 />
@@ -658,6 +940,18 @@ const filteredStudents = useMemo(() => {
       </div>
     </Modal>
 
+    {/* Total Students Summary */}
+    <Card className="mb-2 p-3 bg-orange-50 border-orange-200">
+      <span className="font-semibold text-orange-700">
+        {studentFilters.department && studentFilters.year
+          ? `Total Students in ${studentFilters.department}, Year ${studentFilters.year}: ${filteredStudents.length}`
+          : studentFilters.department
+            ? `Total Students in ${studentFilters.department}: ${filteredStudents.length}`
+            : studentFilters.year
+              ? `Total Students in Year ${studentFilters.year}: ${filteredStudents.length}`
+              : `Total Students: ${filteredStudents.length}`}
+      </span>
+    </Card>
     {/* Filter Inputs */}
     <Card className="mb-4 p-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
@@ -840,9 +1134,15 @@ const filteredStudents = useMemo(() => {
         rows={filteredStudents}
         actions={(r) => (
           <div className="flex gap-2">
-            <Button size="sm" variant="ghost" title="View" onClick={() => openStudentEditModal(r)}>👁</Button>
-            <Button size="sm" variant="ghost" title="Reset Password" onClick={() => resetStudentPassword(r.id)}>🔑</Button>
-            <Button size="sm" variant="destructive" title="Remove" onClick={() => removeStudent(r.id)}>❌</Button>
+            <Button size="sm" variant="ghost" title="Edit" onClick={() => openStudentEditModal(r)}>
+              <span role="img" aria-label="edit">✏️</span>
+            </Button>
+            <Button size="sm" variant="ghost" title="Reset Password" onClick={() => resetStudentPassword(r.id)}>
+              <span role="img" aria-label="reset">🔑</span>
+            </Button>
+            <Button size="sm" variant="ghost" title="Remove" onClick={() => removeStudent(r.id)}>
+              <span role="img" aria-label="remove">❌</span>
+            </Button>
           </div>
         )}
       />
@@ -981,6 +1281,24 @@ const filteredStudents = useMemo(() => {
       </div>
 
       {/* Modals */}
+      {/* Super Admin Reset Password Modal */}
+      <Modal open={adminPwdModalOpen} title="Reset Super Admin Password" onClose={() => setAdminPwdModalOpen(false)}>
+        <div className="space-y-3">
+          <label className="text-sm">Enter New Password</label>
+          <input
+            type="password"
+            value={adminPwdValue}
+            onChange={e => setAdminPwdValue(e.target.value)}
+            className="border px-3 py-2 rounded w-full"
+            placeholder="New password"
+            disabled={adminPwdLoading}
+          />
+          <div className="flex gap-2 mt-4">
+            <Button onClick={handleSuperAdminResetPassword} disabled={adminPwdLoading}>Reset</Button>
+            <Button variant="outline" onClick={() => setAdminPwdModalOpen(false)} disabled={adminPwdLoading}>Cancel</Button>
+          </div>
+        </div>
+      </Modal>
       <Modal open={deptModalOpen} title={editingDept?.id ? "Edit Department" : "Add Department"} onClose={() => setDeptModalOpen(false)}>
         <DeptForm initial={editingDept} onCancel={() => setDeptModalOpen(false)} onSave={(data) => saveDepartment(data)} faculties={faculty} />
       </Modal>
@@ -1084,10 +1402,12 @@ function DeptForm({ initial, onSave, onCancel, faculties }) {
 }
 
 function FacultyForm({ initial, onSave, onCancel, departments }) {
-  const [data, setData] = useState(initial || { name: "", email: "", department: "" });
-  useEffect(() => setData(initial || { name: "", email: "", department: "" }), [initial]);
+  const [data, setData] = useState(initial || { roll: "", name: "", email: "", department: "" });
+  useEffect(() => setData(initial || { roll: "", name: "", email: "", department: "" }), [initial]);
   return (
     <div>
+      <label className="text-sm">Roll No</label>
+      <input value={data.roll} onChange={e => setData(d => ({ ...d, roll: e.target.value }))} className="border px-3 py-2 rounded w-full mb-2" />
       <label className="text-sm">Name</label>
       <input value={data.name} onChange={(e) => setData((d) => ({ ...d, name: e.target.value }))} className="border px-3 py-2 rounded w-full mb-2" />
       <label className="text-sm">Email</label>

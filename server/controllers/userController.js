@@ -138,3 +138,136 @@ exports.addStudent = async (req, res) => {
 		res.status(500).json({ error: 'Server error', details: error });
 	}
 };
+
+// facutly controller
+exports.getFaculty = (req, res) => {
+	const sql = `
+		SELECT u.id, u.name, u.roll_no, u.email, u.department_id, d.short_name AS department_name
+		FROM users u
+		LEFT JOIN departments d ON u.department_id = d.id
+		WHERE u.role_id = 2
+	`;
+	db.query(sql, (err, results) => {
+		if (err) {
+			return res.status(500).json({ error: 'Failed to fetch students', details: err });
+		}
+		res.json(results);
+	});
+};
+
+
+exports.resetFacultyPassword = (req, res) => {
+	const staffId = req.params.id;
+	if (!staffId) {
+		return res.status(400).json({ error: 'Staff ID required.' });
+	}
+	const defaultPassword = 'nscet123';
+	bcrypt.hash(defaultPassword, 10, (err, hash) => {
+		if (err) {
+			return res.status(500).json({ error: 'Failed to hash password', details: err });
+		}
+		const sql = 'UPDATE users SET password = ? WHERE id = ? AND role_id = 2';
+		db.query(sql, [hash, staffId], (err, result) => {
+			if (err) {
+				return res.status(500).json({ error: 'Failed to reset password', details: err });
+			}
+			if (result.affectedRows === 0) {
+				return res.status(404).json({ error: 'Staff not found.' });
+			}
+			res.json({ success: true, message: 'Password reset successfully.' });
+		});
+	});
+};
+
+
+
+exports.addStaff = async (req, res) => {
+	try {
+		const { name, roll_no, email, department_id} = req.body;
+		if (!name || !roll_no || !email || !department_id ) {
+			return res.status(400).json({ error: 'All fields are required.' });
+		}
+		const defaultRole = 2;
+		const sql = 'INSERT INTO users (name, roll_no, email, department_id, role_id) VALUES (?, ?, ?, ?, ?)';
+		db.query(sql, [name, roll_no, email, department_id, defaultRole], (err, result) => {
+			if (err) {
+				return res.status(500).json({ error: 'Database error', details: err });
+			}
+			res.json({ success: true, insertedId: result.insertId });
+		});
+	} catch (error) {
+		res.status(500).json({ error: 'Server error', details: error });
+	}
+};
+
+exports.deleteFaculty = (req, res) => {
+	const staffId = req.params.id;
+	if (!staffId) {
+		return res.status(400).json({ error: 'Staff ID required.' });
+	}
+	const sql = 'DELETE FROM users WHERE id = ? AND role_id = 2';
+	db.query(sql, [staffId], (err, result) => {
+		if (err) {
+			return res.status(500).json({ error: 'Failed to delete staff', details: err });
+		}
+		if (result.affectedRows === 0) {
+			return res.status(404).json({ error: 'Staff not found or already deleted.' });
+		}
+		res.json({ success: true, deleted: result.affectedRows });
+	});
+};
+
+
+
+exports.updateFaculty = (req, res) => {
+	const staffId = req.params.id;
+	const { roll_no, name, email, department_id } = req.body;
+	if (!staffId) {
+		return res.status(400).json({ error: 'Staff ID required.' });
+	}
+	const fields = [];
+	const values = [];
+	if (roll_no !== undefined) { fields.push('roll_no = ?'); values.push(roll_no); }
+	if (name !== undefined) { fields.push('name = ?'); values.push(name); }
+	if (email !== undefined) { fields.push('email = ?'); values.push(email); }
+	if (department_id !== undefined) { fields.push('department_id = ?'); values.push(department_id); }
+	if (!fields.length) {
+		return res.status(400).json({ error: 'No fields to update.' });
+	}
+	const sql = `UPDATE users SET ${fields.join(', ')} WHERE id = ? AND role_id = 2`;
+	values.push(staffId);
+	db.query(sql, values, (err, result) => {
+		if (err) {
+			return res.status(500).json({ error: 'Failed to update staff', details: err });
+		}
+		if (result.affectedRows === 0) {
+			return res.status(404).json({ error: 'Staff not found.' });
+		}
+		res.json({ success: true, updated: result.affectedRows });
+	});
+};
+
+
+exports.adminResetPassword = (req, res) => {
+	let staffId = 1;
+	
+	const { password } = req.body;
+	if (!password) {
+		return res.status(400).json({ error: 'Password required.' });
+	}
+	bcrypt.hash(password, 10, (err, hash) => {
+		if (err) {
+			return res.status(500).json({ error: 'Failed to hash password', details: err });
+		}
+		const sql = 'UPDATE users SET password = ? WHERE id = ? AND role_id = 5';
+		db.query(sql, [hash, staffId], (err, result) => {
+			if (err) {
+				return res.status(500).json({ error: 'Failed to reset password', details: err });
+			}
+			if (result.affectedRows === 0) {
+				return res.status(404).json({ error: 'Staff not found.' });
+			}
+			res.json({ success: true, message: 'Password reset successfully.' });
+		});
+	});
+};
