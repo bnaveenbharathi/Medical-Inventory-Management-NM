@@ -1,6 +1,9 @@
 const express = require('express');
 const router = express.Router();
+
 const uploadstudentController = require('../controllers/userController');
+const topicController = require('../controllers/topicController');
+const authMiddleware = require('../middleware/authMiddleware');
 
 
 
@@ -32,6 +35,12 @@ router.put('/update-faculty/:id', uploadstudentController.updateFaculty);
 
 // admin
 router.post('/reset-password-admin/:id', uploadstudentController.adminResetPassword);
+
+
+router.get('/profile', authMiddleware, uploadstudentController.getProfile);
+
+// Topics with subtopics
+router.get('/topics-with-subtopics', authMiddleware, topicController.getTopicsWithSubTopics);
 
 module.exports = router;
 

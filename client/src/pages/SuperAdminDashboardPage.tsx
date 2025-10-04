@@ -99,7 +99,26 @@ const initialTests = [
 ];
 
 export default function SuperAdminApp() {
-  // Add Staff Modal state
+  // State for sub-topics with questions
+  const [subTopicsWithQuestions, setSubTopicsWithQuestions] = useState([]);
+  // State for question modal
+  const [activeSubTopicQuestions, setActiveSubTopicQuestions] = useState([]);
+  const [activeSubTopicTitle, setActiveSubTopicTitle] = useState("");
+
+  // Fetch sub-topics with questions on mount
+  useEffect(() => {
+    fetch(`${API_BASE}/question/sub-topics-with-questions`)
+      .then(res => res.json())
+      .then(data => setSubTopicsWithQuestions(data.sub_topics || []))
+      .catch(() => setSubTopicsWithQuestions([]));
+  }, []);
+  // Topic filter state
+  const [topicFilter, setTopicFilter] = useState("");
+  const [subTopicFilter, setSubTopicFilter] = useState("");
+  const [subTopicModalOpen, setSubTopicModalOpen] = useState(false);
+  const [activeTopic, setActiveTopic] = useState(null);
+  const [filteredSubTopics, setFilteredSubTopics] = useState([]);
+
   const [addStaffModalOpen, setAddStaffModalOpen] = useState(false);
   const [newStaff, setNewStaff] = useState({ roll_no: '', name: '', email: '', department_id: '' });
   const [addStaffLoading, setAddStaffLoading] = useState(false);
@@ -185,19 +204,15 @@ export default function SuperAdminApp() {
   const [adminUserId, setAdminUserId] = useState(null); // super admin id (for own reset)
 
   function handleLogout() {
-    // Clear session and redirect to login
     localStorage.removeItem("jwt_token");
     window.location.href = "/";
   }
 
-  // Data stores: in real app these will be fetched from APIs
   const [departments, setDepartments] = useState([]);
-  // Fetch departments from API on mount
   useEffect(() => {
     fetch(`${API_BASE}/dept/departments`)
       .then(res => res.json())
       .then(data => {
-        // Map API fields to expected shape, include hod_name
         setDepartments(data.map(d => ({
           id: d.id,
           code: d.short_name,
@@ -251,7 +266,20 @@ export default function SuperAdminApp() {
   const [questions, setQuestions] = useState(initialQuestions);
   const [tests, setTests] = useState(initialTests);
 
-  // UI state for modals/forms
+  const [topics, setTopics] = useState([]);
+  const [subTopics, setSubTopics] = useState([]);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/question/topics`)
+      .then(res => res.json())
+      .then(data => setTopics(data.topics || []))
+      .catch(() => setTopics([]));
+    fetch(`${API_BASE}/question/sub-topics`)
+      .then(res => res.json())
+      .then(data => setSubTopics(data.sub_topics || []))
+      .catch(() => setSubTopics([]));
+  }, []);
+
   const [deptModalOpen, setDeptModalOpen] = useState(false);
   const [editingDept, setEditingDept] = useState(null);
 
@@ -672,14 +700,27 @@ const filteredStudents = useMemo(() => {
               IQARENA
             </h2>
           </div>
-          <SidebarLink active={view === "dashboard"} onClick={() => setView("dashboard")}>Dashboard</SidebarLink>
-          <SidebarLink active={view === "departments"} onClick={() => setView("departments")}>Departments</SidebarLink>
-          <SidebarLink active={view === "staff"} onClick={() => setView("staff")}>Staff</SidebarLink>
-          <SidebarLink active={view === "students"} onClick={() => setView("students")}>Students</SidebarLink>
-          <SidebarLink active={view === "questions"} onClick={() => setView("questions")}>Question Bank</SidebarLink>
-          <SidebarLink active={view === "tests"} onClick={() => setView("tests")}>Tests</SidebarLink>
-          <SidebarLink active={view === "reports"} onClick={() => setView("reports")}>Reports</SidebarLink>
-          <SidebarLink active={view === "settings"} onClick={() => setView("settings")}>Settings</SidebarLink>
+          <SidebarLink active={view === "dashboard"} onClick={() => setView("dashboard")}> 
+            <span className="inline-block mr-2 align-middle">🏠</span>Dashboard
+          </SidebarLink>
+          <SidebarLink active={view === "departments"} onClick={() => setView("departments")}> 
+            <span className="inline-block mr-2 align-middle">🏢</span>Departments
+          </SidebarLink>
+          <SidebarLink active={view === "staff"} onClick={() => setView("staff")}> 
+            <span className="inline-block mr-2 align-middle">👨‍🏫</span>Staff
+          </SidebarLink>
+          <SidebarLink active={view === "students"} onClick={() => setView("students")}> 
+            <span className="inline-block mr-2 align-middle">🎓</span>Students
+          </SidebarLink>
+          <SidebarLink active={view === "questions"} onClick={() => setView("questions")}> 
+            <span className="inline-block mr-2 align-middle">📚</span>Topics
+          </SidebarLink>
+          <SidebarLink active={view === "tests"} onClick={() => setView("tests")}> 
+            <span className="inline-block mr-2 align-middle">📝</span>Tests
+          </SidebarLink>
+          <SidebarLink active={view === "reports"} onClick={() => setView("reports")}> 
+            <span className="inline-block mr-2 align-middle">📊</span>Reports
+          </SidebarLink>
         </nav>
       </aside>
 
@@ -1155,27 +1196,123 @@ const filteredStudents = useMemo(() => {
           {view === "questions" && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold">Question Bank</h2>
-                <div className="flex gap-2">
-                  <Button onClick={() => openAddQuestion(null)}>Add Question</Button>
-                  <input id="qcsv" type="file" accept=".csv" className="hidden" onChange={(e) => e.target.files?.[0] && bulkUploadQuestions(e.target.files[0])} />
-                  <label htmlFor="qcsv" className="cursor-pointer"><Button>Bulk Upload (CSV)</Button></label>
-                </div>
+                <h2 className="text-xl font-semibold">Topics</h2>
               </div>
-
               <Card>
-                <Table
-                  columns={[{ key: "text", title: "Question" }, { key: "subject", title: "Subject" }, { key: "difficulty", title: "Difficulty" }, { key: "approved", title: "Approved", render: (r) => (r.approved ? "Yes" : "No") }]}
-                  rows={questions}
-                  actions={(r) => (
-                    <div className="flex gap-2">
-                      <Button size="sm" onClick={() => openAddQuestion(r)}>Edit</Button>
-                      {!r.approved && <Button size="sm" onClick={() => approveQuestion(r.id)}>Approve</Button>}
-                      <Button size="sm" variant="destructive" onClick={() => deleteQuestion(r.id)}>Delete</Button>
-                    </div>
-                  )}
+                <input
+                  type="text"
+                  className="border px-3 py-2 rounded w-full mb-4"
+                  placeholder="Filter topics by title or description"
+                  value={topicFilter}
+                  onChange={e => setTopicFilter(e.target.value)}
                 />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {topics.filter(topic =>
+                    topic.title.toLowerCase().includes(topicFilter.toLowerCase()) ||
+                    topic.description.toLowerCase().includes(topicFilter.toLowerCase())
+                  ).length === 0 && <div className="p-4 text-gray-500">No topics found.</div>}
+                  {topics.filter(topic =>
+                    topic.title.toLowerCase().includes(topicFilter.toLowerCase()) ||
+                    topic.description.toLowerCase().includes(topicFilter.toLowerCase())
+                  ).map(topic => (
+                    <div key={topic.topic_id} className="p-4 border rounded shadow-sm cursor-pointer hover:bg-orange-50" onClick={() => {
+                      setActiveTopic(topic);
+                      setFilteredSubTopics(subTopics.filter(st => st.topic_id === topic.topic_id));
+                      setSubTopicModalOpen(true);
+                    }}>
+                      <div className="font-semibold text-lg">{topic.title}</div>
+                      <div className="text-sm text-gray-600 mb-2">{topic.description}</div>
+                      <div className="text-xs text-gray-500">Added by: {topic.user_name || 'Unknown'} ({topic.user_email || '-'})</div>
+                      <div className="text-xs text-gray-400">Created: {new Date(topic.created_at).toLocaleString()}</div>
+                    </div>
+                  ))}
+                </div>
               </Card>
+
+              {/* Sub-topic Modal */}
+              <Modal open={subTopicModalOpen} title={activeTopic ? `Sub Topics for ${activeTopic.title}` : "Sub Topics"} onClose={() => setSubTopicModalOpen(false)}>
+                <div className="space-y-3">
+                  <input
+                    type="text"
+                    className="border px-3 py-2 rounded w-full mb-2"
+                    placeholder="Filter sub-topics by title or description"
+                    value={subTopicFilter}
+                    onChange={e => setSubTopicFilter(e.target.value)}
+                  />
+                  {filteredSubTopics.filter(sub =>
+                    sub.title.toLowerCase().includes(subTopicFilter.toLowerCase()) ||
+                    sub.description.toLowerCase().includes(subTopicFilter.toLowerCase())
+                  ).length === 0 && <div className="text-gray-500">No sub-topics for this topic.</div>}
+                  {filteredSubTopics.filter(sub =>
+                    sub.title.toLowerCase().includes(subTopicFilter.toLowerCase()) ||
+                    sub.description.toLowerCase().includes(subTopicFilter.toLowerCase())
+                  ).map(sub => (
+                    <div key={sub.sub_topic_id} className="p-3 border rounded mb-2 cursor-pointer hover:bg-orange-50" onClick={() => {
+                      const subWithQ = subTopicsWithQuestions.find(st => st.sub_topic_id === sub.sub_topic_id);
+                      setActiveSubTopicQuestions(subWithQ?.questions || []);
+                      setActiveSubTopicTitle(sub.title);
+                      setQuestionModalOpen(true);
+                    }}>
+                      <div className="font-semibold">{sub.title}</div>
+                      <div className="text-sm text-gray-600 mb-1">{sub.description}</div>
+                      <div className="text-xs text-gray-500">Added by: {sub.user_name || 'Unknown'} ({sub.user_email || '-'})</div>
+                      <div className="text-xs text-gray-400">Created: {new Date(sub.created_at).toLocaleString()}</div>
+                    </div>
+                  ))}
+              {/* Questions Modal */}
+              <Modal open={questionModalOpen} title={`Questions for ${activeSubTopicTitle}`} onClose={() => setQuestionModalOpen(false)}>
+                <div className="space-y-3">
+                  {activeSubTopicQuestions.length === 0 && <div className="text-gray-500">No questions for this sub-topic.</div>}
+                  {activeSubTopicQuestions.map(q => (
+                    <div key={q.question_id} className="p-3 border rounded mb-2">
+                      <div className="font-semibold">{q.text}</div>
+                      <div className="text-xs text-gray-500">A: {q.a} | B: {q.b} | C: {q.c} | D: {q.d}</div>
+                      <div className="text-xs text-green-600">Correct: {q.correct}</div>
+                      <div className="flex gap-2 mt-2">
+                        <Button size="sm" variant="outline" onClick={() => {
+                          setEditingQuestion(q);
+                        }}>Edit</Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Modal>
+
+              {/* Edit Question Modal */}
+              <Modal open={!!editingQuestion} title={editingQuestion ? `Edit Question` : "Edit Question"} onClose={() => setEditingQuestion(null)}>
+                {editingQuestion && (
+                  <form className="space-y-3" onSubmit={async e => {
+                    e.preventDefault();
+                    // Example API call to update question
+                    await fetch(`${API_BASE}/question/update/${editingQuestion.question_id}`, {
+                      method: 'PUT',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(editingQuestion)
+                    });
+                    setEditingQuestion(null);
+                  }}>
+                    <label className="text-sm">Question Text</label>
+                    <input type="text" className="border px-3 py-2 rounded w-full" value={editingQuestion.text} onChange={e => setEditingQuestion(q => ({ ...q, text: e.target.value }))} />
+                    <label className="text-sm">Option A</label>
+                    <input type="text" className="border px-3 py-2 rounded w-full" value={editingQuestion.a} onChange={e => setEditingQuestion(q => ({ ...q, a: e.target.value }))} />
+                    <label className="text-sm">Option B</label>
+                    <input type="text" className="border px-3 py-2 rounded w-full" value={editingQuestion.b} onChange={e => setEditingQuestion(q => ({ ...q, b: e.target.value }))} />
+                    <label className="text-sm">Option C</label>
+                    <input type="text" className="border px-3 py-2 rounded w-full" value={editingQuestion.c} onChange={e => setEditingQuestion(q => ({ ...q, c: e.target.value }))} />
+                    <label className="text-sm">Option D</label>
+                    <input type="text" className="border px-3 py-2 rounded w-full" value={editingQuestion.d} onChange={e => setEditingQuestion(q => ({ ...q, d: e.target.value }))} />
+                    <label className="text-sm">Correct Option</label>
+                    <input type="text" className="border px-3 py-2 rounded w-full" value={editingQuestion.correct} onChange={e => setEditingQuestion(q => ({ ...q, correct: e.target.value }))} />
+                    {/* Subject and Difficulty fields removed as requested */}
+                    <div className="flex gap-2 mt-4">
+                      <Button type="submit" size="sm">Save</Button>
+                      <Button type="button" variant="outline" size="sm" onClick={() => setEditingQuestion(null)}>Cancel</Button>
+                    </div>
+                  </form>
+                )}
+              </Modal>
+                </div>
+              </Modal>
             </div>
           )}
 
@@ -1252,30 +1389,7 @@ const filteredStudents = useMemo(() => {
             </div>
           )}
 
-          {view === "settings" && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h2 className="text-xl font-semibold">Settings & Access Control</h2>
-              </div>
-              <Card>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <div className="font-medium mb-2">Global Defaults</div>
-                    <label className="block text-sm mb-1">Default Exam Duration (mins)</label>
-                    <input type="number" defaultValue={60} className="border px-3 py-2 rounded w-40" />
-                    <div className="mt-3 text-sm text-slate-500">Change system-level defaults here.</div>
-                  </div>
-                  <div>
-                    <div className="font-medium mb-2">Roles</div>
-                    <div className="text-sm text-slate-600">Super Admin, Faculty, HOD, Student, VP, Principal</div>
-                    <div className="mt-2">
-                      <Button onClick={() => alert("Role editor - implement granular RBAC on server")}>Edit Roles & Permissions</Button>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            </div>
-          )}
+          
 
         </main>
       </div>
@@ -1307,9 +1421,6 @@ const filteredStudents = useMemo(() => {
         <FacultyForm initial={editingFaculty} onCancel={() => setFacultyModalOpen(false)} onSave={(data) => saveFaculty(data)} departments={departments} />
       </Modal>
 
-      <Modal open={questionModalOpen} title={editingQuestion?.id ? "Edit Question" : "Add Question"} onClose={() => setQuestionModalOpen(false)}>
-        <QuestionForm initial={editingQuestion} onCancel={() => setQuestionModalOpen(false)} onSave={(q) => saveQuestion(q)} />
-      </Modal>
 
       <Modal open={testWizardOpen} title={`Create Test - Step ${testStep}/3`} onClose={() => setTestWizardOpen(false)}>
         <div>

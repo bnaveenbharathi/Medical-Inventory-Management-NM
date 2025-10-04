@@ -1,5 +1,4 @@
 
-
 const db = require('../config/conn');
 const bcrypt = require('bcryptjs');
 
@@ -271,3 +270,26 @@ exports.adminResetPassword = (req, res) => {
 		});
 	});
 };
+
+exports.getProfile = (req, res) => {
+	const userId = req.user?.id;
+	if (!userId) {
+		return res.status(401).json({ error: 'Unauthorized: No user id in token.' });
+	}
+	const sql = `
+		SELECT u.id, u.roll_no, u.name, u.email, u.password, u.year, u.role_id, u.department_id, d.full_name AS department_name, u.created_at, u.updated_at
+		FROM users u
+		LEFT JOIN departments d ON u.department_id = d.id
+		WHERE u.id = ?
+	`;
+	db.query(sql, [userId], (err, results) => {
+		if (err) {
+			return res.status(500).json({ error: 'Database error', details: err });
+		}
+		if (!results.length) {
+			return res.status(404).json({ error: 'User not found.' });
+		}
+		res.json({ success: true, profile: results[0] });
+	});
+};
+
