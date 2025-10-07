@@ -68,3 +68,93 @@ exports.getSubTopics = (req, res) => {
     res.json({ success: true, subTopics: results });
   });
 };
+
+// Create Topic
+exports.createTopic = (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized: No user id in token.' });
+  }
+
+  const { title, description } = req.body;
+  if (!title || !title.trim()) {
+    return res.status(400).json({ error: 'Topic title is required.' });
+  }
+
+  // Check if topic title already exists
+  const checkSql = 'SELECT topic_id FROM topics WHERE title = ?';
+  db.query(checkSql, [title.trim()], (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error', details: err });
+    }
+    if (results.length > 0) {
+      return res.status(400).json({ error: 'Topic with this title already exists.' });
+    }
+
+    // Create new topic with by_admin = 0 and added_by = userId
+    const insertSql = 'INSERT INTO topics (title, description, added_by, by_admin) VALUES (?, ?, ?, 0)';
+    db.query(insertSql, [title.trim(), description || null, userId], (err, result) => {
+      if (err) {
+        return res.status(500).json({ error: 'Failed to create topic', details: err });
+      }
+      res.json({ 
+        success: true, 
+        message: 'Topic created successfully',
+        topicId: result.insertId 
+      });
+    });
+  });
+};
+
+// Create Sub-topic
+exports.createSubTopic = (req, res) => {
+  const userId = req.user?.id;
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized: No user id in token.' });
+  }
+
+  const { topicId, title, description } = req.body;
+  if (!topicId || !title || !title.trim()) {
+    return res.status(400).json({ error: 'Topic ID and sub-topic title are required.' });
+  }
+
+  // Check if topic exists and user has access to it
+  const checkTopicSql = 'SELECT added_by, by_admin FROM topics WHERE topic_id = ?';
+  db.query(checkTopicSql, [topicId], (err, topicResults) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error', details: err });
+    }
+    if (topicResults.length === 0) {
+      return res.status(404).json({ error: 'Topic not found.' });
+    }
+
+    const topic = topicResults[0];
+    if (topic.by_admin !== 1 && topic.added_by !== userId) {
+      return res.status(403).json({ error: 'You can only add sub-topics to topics you created or admin topics.' });
+    }
+
+    // Check if sub-topic title already exists in this topic
+    const checkSubTopicSql = 'SELECT sub_topic_id FROM sub_topics WHERE topic_id = ? AND title = ?';
+    db.query(checkSubTopicSql, [topicId, title.trim()], (err, subTopicResults) => {
+      if (err) {
+        return res.status(500).json({ error: 'Database error', details: err });
+      }
+      if (subTopicResults.length > 0) {
+        return res.status(400).json({ error: 'Sub-topic with this title already exists in this topic.' });
+      }
+
+      // Create new sub-topic
+      const insertSql = 'INSERT INTO sub_topics (topic_id, title, description, added_by) VALUES (?, ?, ?, ?)';
+      db.query(insertSql, [topicId, title.trim(), description || null, userId], (err, result) => {
+        if (err) {
+          return res.status(500).json({ error: 'Failed to create sub-topic', details: err });
+        }
+        res.json({ 
+          success: true, 
+          message: 'Sub-topic created successfully',
+          subTopicId: result.insertId 
+        });
+      });
+    });
+  });
+};

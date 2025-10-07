@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { jwtDecode } from "jwt-decode";
+import { Plus } from "lucide-react";
 
 const API_BASE = import.meta.env.VITE_API_BASE;
 
@@ -472,7 +473,7 @@ const UploadQuestionsWithPreview = ({ selectedTopic, selectedSubtopic, onClose }
   );
 };
 
-export function TopicsSection() {
+export function TopicsSection({ onCreateTopic, onCreateSubTopic }) {
   const [topics, setTopics] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -577,7 +578,18 @@ export function TopicsSection() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Topics List */}
         <div className="bg-white rounded-2xl shadow p-6">
-          <h2 className="font-bold text-xl mb-4">Topics</h2>
+          <div className="flex items-center gap-3 mb-4">
+            <h2 className="font-bold text-xl">Topics</h2>
+            {onCreateTopic && (
+              <button 
+                onClick={onCreateTopic}
+                className="p-2 bg-blue-500 hover:bg-blue-600 text-white rounded-full shadow-md transition duration-200"
+                title="Create New Topic"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            )}
+          </div>
           <ul className="space-y-2">
             {topics.map(topic => (
               <li key={topic.id}>
@@ -604,7 +616,18 @@ export function TopicsSection() {
 
         {/* Subtopics List */}
         <div className="bg-white rounded-2xl shadow p-6">
-          <h2 className="font-bold text-xl mb-4">Subtopics</h2>
+          <div className="flex items-center gap-3 mb-4">
+            <h2 className="font-bold text-xl">Subtopics</h2>
+            {selectedTopic && onCreateSubTopic && (
+              <button
+                onClick={() => onCreateSubTopic(selectedTopic)}
+                className="p-2 bg-green-500 hover:bg-green-600 text-white rounded-full shadow-md transition duration-200"
+                title="Add New Subtopic"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            )}
+          </div>
           {selectedTopic?.subtopics.length ? (
             <ul className="space-y-2">
               {selectedTopic.subtopics.map(sub => (

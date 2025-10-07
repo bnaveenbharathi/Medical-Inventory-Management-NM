@@ -95,3 +95,125 @@ exports.login = (req, res) => {
     }
   );
 };
+
+// Update user profile
+exports.updateProfile = async (req, res) => {
+  const userId = req.user?.id;
+  
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized: No user id in token' });
+  }
+
+  const { name, email } = req.body;
+
+  if (!name || !email) {
+    return res.status(400).json({ error: 'Name and email are required' });
+  }
+
+  // Check if email already exists for another user
+  const checkEmailQuery = 'SELECT id FROM users WHERE email = ? AND id != ?';
+  
+  db.query(checkEmailQuery, [email, userId], (checkErr, checkResults) => {
+    if (checkErr) {
+      return res.status(500).json({ error: 'Database error', details: checkErr });
+    }
+    
+    if (checkResults.length > 0) {
+      return res.status(400).json({ error: 'Email already exists' });
+    }
+
+    // Update user profile
+    const updateQuery = 'UPDATE users SET name = ?, email = ? WHERE id = ?';
+    
+    db.query(updateQuery, [name, email, userId], (updateErr, updateResult) => {
+      if (updateErr) {
+        return res.status(500).json({ error: 'Database error', details: updateErr });
+      }
+      
+      if (updateResult.affectedRows === 0) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+      
+      res.json({ 
+        success: true, 
+        message: 'Profile updated successfully' 
+      });
+    });
+  });
+};
+
+// Reset password
+exports.resetPassword = async (req, res) => {
+  const userId = req.user?.id;
+  
+  if (!userId) {
+    return res.status(401).json({ error: 'Unauthorized: No user id in token' });
+  }
+
+  const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ error: 'Current password and new password are required' });
+  }
+
+  if (newPassword.length < 6) {
+    return res.status(400).json({ error: 'New password must be at least 6 characters long' });
+  }
+
+  // Get current password from database
+  const getUserQuery = 'SELECT password FROM users WHERE id = ?';
+  
+  db.query(getUserQuery, [userId], (getUserErr, getUserResults) => {
+    if (getUserErr) {
+      return res.status(500).json({ error: 'Database error', details: getUserErr });
+    }
+    
+    if (getUserResults.length === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const currentHashedPassword = getUserResults[0].password;
+
+    // Verify current password
+    bcrypt.compare(currentPassword, currentHashedPassword, (compareErr, isMatch) => {
+      if (compareErr) {
+        return res.status(500).json({ error: 'Error comparing passwords' });
+      }
+      
+      if (!isMatch) {
+        return res.status(401).json({ error: 'Current password is incorrect' });
+      }
+
+      // Hash new password
+      bcrypt.genSalt(10, (saltErr, salt) => {
+        if (saltErr) {
+          return res.status(500).json({ error: 'Error generating salt' });
+        }
+        
+        bcrypt.hash(newPassword, salt, (hashErr, hashedNewPassword) => {
+          if (hashErr) {
+            return res.status(500).json({ error: 'Error hashing password' });
+          }
+          
+          // Update password in database
+          const updatePasswordQuery = 'UPDATE users SET password = ? WHERE id = ?';
+          
+          db.query(updatePasswordQuery, [hashedNewPassword, userId], (updateErr, updateResult) => {
+            if (updateErr) {
+              return res.status(500).json({ error: 'Database error', details: updateErr });
+            }
+            
+            if (updateResult.affectedRows === 0) {
+              return res.status(404).json({ error: 'User not found' });
+            }
+            
+            res.json({ 
+              success: true, 
+              message: 'Password reset successfully' 
+            });
+          });
+        });
+      });
+    });
+  });
+};

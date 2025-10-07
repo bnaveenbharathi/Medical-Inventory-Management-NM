@@ -7,4 +7,10 @@ router.get('/topics-with-subtopics', authMiddleware, topicController.getTopicsWi
 
 router.get('/subtopics/:topicId', authMiddleware, topicController.getSubTopics);
 
+// Create topic route
+router.post('/create-topics', authMiddleware, topicController.createTopic);
+
+// Create subtopic route
+router.post('/create-subtopics', authMiddleware, topicController.createSubTopic);
+
 module.exports = router;
