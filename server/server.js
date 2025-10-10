@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 3000;
 
 
 
-const allowedOrigin = 'http://192.168.43.180:8080'; 
+const allowedOrigin = 'http://192.168.14.26:8080'; 
 app.use((req, res, next) => {
 	res.header('Access-Control-Allow-Origin', allowedOrigin);
 	res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');

@@ -17,45 +17,6 @@ const mockStats = {
   activeQuizzes: 3,
 };
 
-const mockQuizzes = [
-  {
-    id: 1,
-    title: "Data Structures Mid-term",
-    subject: "Computer Science",
-    students: 45,
-    completed: 32,
-    avgScore: 76,
-    status: "active",
-    createdDate: "2024-09-15",
-  },
-  {
-    id: 2,
-    title: "Algorithm Analysis Quiz",
-    subject: "Computer Science",
-    students: 38,
-    completed: 38,
-    avgScore: 82,
-    status: "completed",
-    createdDate: "2024-09-10",
-  },
-  {
-    id: 3,
-    title: "Database Fundamentals",
-    subject: "Computer Science",
-    students: 42,
-    completed: 0,
-    avgScore: 0,
-    status: "draft",
-    createdDate: "2024-09-20",
-  },
-];
-
-// Mock data for dynamic sub-topics (expand as needed)
-const mockTopicsSubtopics = {
-  3: ["Lists and Arrays", "Stacks and Queues"],
-  5: ["Functions and Modules", "Error Handling"],
-};
-
 const TestsSection = ({ tests, loading, error, onEdit, onDelete, onToggleStatus, onViewQuestions }) => {
   if (loading) {
     return (
@@ -112,6 +73,10 @@ const TestsSection = ({ tests, loading, error, onEdit, onDelete, onToggleStatus,
             <div className="flex items-center gap-4 text-xs text-muted-foreground">
               {test.date && <span>Date: {new Date(test.date).toLocaleDateString()}</span>}
               {test.time_slot && <span>Time: {test.time_slot}</span>}
+              {(test.department_name || test.department || test.dept_name || test.dept_short_name) && (
+                <span>Department: {test.department_name || test.department || test.dept || test.dept_short_name}</span>
+              )}
+              {test.year && <span>Year: {test.year}</span>}
               <span>Created: {new Date(test.created_at).toLocaleDateString()}</span>
             </div>
           </div>

@@ -13,10 +13,13 @@ exports.getTestsByUser = (req, res) => {
            t.num_questions, t.department_id, t.year, t.date, t.time_slot, t.duration_minutes, 
            t.created_at, t.is_active,
            tp.title as topic_title,
-           st.title as sub_topic_title
+           st.title as sub_topic_title,
+           d.full_name as department_name,
+           d.short_name as dept_short_name
     FROM tests t
     LEFT JOIN topics tp ON t.topic_id = tp.topic_id
     LEFT JOIN sub_topics st ON t.sub_topic_id = st.sub_topic_id
+    LEFT JOIN departments d ON t.department_id = d.id
     WHERE t.added_by = ?
     ORDER BY t.created_at DESC
   `;
@@ -38,6 +41,8 @@ exports.getTestsByUser = (req, res) => {
       sub_topic_title: row.sub_topic_title,
       num_questions: row.num_questions,
       department_id: row.department_id,
+      department_name: row.department_name,
+      dept_short_name: row.dept_short_name,
       year: row.year,
       date: row.date,
       time_slot: row.time_slot,

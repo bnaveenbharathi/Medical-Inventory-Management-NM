@@ -1,4 +1,4 @@
-import { StudentDashboard } from "@/components/dashboard/student-dashboard";
+import StudentDashboard from "../components/dashboard/StudentDashboard";
 
 const StudentDashboardPage = () => {
   return <StudentDashboard />;

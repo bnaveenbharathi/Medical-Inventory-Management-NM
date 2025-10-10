@@ -45,12 +45,7 @@ const Header = () => {
            <div>
               <img src={iqarena} alt="" width={80} />
             </div>
-            {/* Show user name */}
-            {userName && (
-              <div className="ml-4 text-lg font-bold text-orange-600">
-                {userName}
-              </div>
-            )}
+            
             <div className='Logout'>
               <Button
                 variant="destructive"
