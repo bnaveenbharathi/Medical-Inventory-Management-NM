@@ -1118,7 +1118,7 @@ export const FacultyDashboard = () => {
       }
       
       resetForm();
-      fetchTests(); // Refresh the tests list
+      fetchTests(); 
     } catch (error: any) {
       alert(error.message || "Error saving test. Please try again.");
     } finally {

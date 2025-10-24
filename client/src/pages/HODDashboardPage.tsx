@@ -1,5 +1,7 @@
+import { HODDashboard } from "@/components/dashboard/hod-dashboard";
+
 const HODDashboardPage = () => {
-  return <div>HOD Dashboard</div>;
+  return <HODDashboard />;
 };
 
 export default HODDashboardPage;

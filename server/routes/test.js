@@ -6,8 +6,11 @@ const authMiddleware = require('../middleware/authMiddleware');
 // All routes require authentication
 router.use(authMiddleware);
 
-// Get all tests for the authenticated user
+// Get all tests for the authenticated user (faculty)
 router.get('/', testController.getTestsByUser);
+
+// Get tests for student based on year and department
+router.get('/student/available', testController.getTestsForStudent);
 
 // Get a specific test by ID
 router.get('/:test_id', testController.getTestById);

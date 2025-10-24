@@ -55,6 +55,85 @@ exports.getTestsByUser = (req, res) => {
   });
 };
 
+// Get tests for student based on their year and department
+exports.getTestsForStudent = (req, res) => {
+  const studentId = req.user?.id;
+  
+  if (!studentId) {
+    return res.status(401).json({ error: 'Unauthorized: No user id in token' });
+  }
+
+  const sql = `
+    SELECT t.test_id, t.title, t.description, t.subject, t.added_by, t.topic_id, t.sub_topic_id, 
+           t.num_questions, t.department_id, t.year, t.date, t.time_slot, t.duration_minutes, 
+           t.created_at, t.is_active,
+           tp.title as topic_title,
+           st.title as sub_topic_title,
+           d.full_name as department_name,
+           d.short_name as dept_short_name,
+           u.name as faculty_name,
+           CASE 
+             WHEN t.is_active = 1 THEN 'active'
+             WHEN t.is_active = 0 THEN 'inactive'
+             ELSE 'active'
+           END as status,
+           stest.score,
+           stest.start_time,
+           stest.end_time
+    FROM tests t
+    LEFT JOIN topics tp ON t.topic_id = tp.topic_id
+    LEFT JOIN sub_topics st ON t.sub_topic_id = st.sub_topic_id
+    LEFT JOIN departments d ON t.department_id = d.id
+    LEFT JOIN users u ON t.added_by = u.id
+    LEFT JOIN student_tests stest ON t.test_id = stest.test_id AND stest.student_id = ?
+    INNER JOIN users student ON student.id = ?
+    WHERE (t.department_id IS NULL OR t.department_id = student.department_id)
+      AND (t.year IS NULL OR t.year = student.year)
+      AND (t.date IS NULL OR t.date >= CURDATE())
+    ORDER BY 
+      t.is_active DESC,
+      CASE 
+        WHEN t.date IS NOT NULL THEN t.date 
+        ELSE t.created_at 
+      END DESC
+  `;
+  
+  db.query(sql, [studentId, studentId], (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: 'Database error', details: err });
+    }
+    
+    const formattedResults = results.map(row => ({
+      test_id: row.test_id,
+      title: row.title,
+      description: row.description,
+      subject: row.subject,
+      added_by: row.added_by,
+      topic_id: row.topic_id,
+      topic_title: row.topic_title,
+      sub_topic_id: row.sub_topic_id,
+      sub_topic_title: row.sub_topic_title,
+      num_questions: row.num_questions,
+      department_id: row.department_id,
+      department_name: row.department_name,
+      dept_short_name: row.dept_short_name,
+      year: row.year,
+      date: row.date,
+      time_slot: row.time_slot,
+      duration_minutes: row.duration_minutes,
+      created_at: row.created_at,
+      is_active: row.is_active,
+      faculty_name: row.faculty_name,
+      status: row.status,
+      score: row.score,
+      start_time: row.start_time,
+      end_time: row.end_time
+    }));
+    
+    res.json({ success: true, tests: formattedResults });
+  });
+};
+
 // Get a specific test by ID (only if created by the authenticated user)
 exports.getTestById = (req, res) => {
   const { test_id } = req.params;

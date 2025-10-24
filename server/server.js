@@ -9,7 +9,7 @@ const PORT = process.env.PORT || 3000;
 
 
 
-const allowedOrigin = 'http://192.168.14.26:8080'; 
+const allowedOrigin = 'http://192.168.43.180:8080'; 
 app.use((req, res, next) => {
 	res.header('Access-Control-Allow-Origin', allowedOrigin);
 	res.header('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS');
@@ -58,6 +58,10 @@ app.use('/api/test', testRoutes);
 // Staff Reports routes
 const staffReportRoutes = require('./routes/staffReports');
 app.use('/api/reports', staffReportRoutes);
+
+// Quiz routes
+const quizRoutes = require('./routes/quiz');
+app.use('/api/quiz', quizRoutes);
 
 app.get('/', (req, res) => {
 	res.send('Server is running and connected to MySQL!');

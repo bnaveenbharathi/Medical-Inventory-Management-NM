@@ -3,51 +3,37 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatsCard } from "./stats-card";
-import { BookOpen, Clock, Trophy, User, Play, Pause, CheckCircle, Users, BarChart3, Eye, Edit, FileText } from "lucide-react";
+import { BookOpen, Clock, Trophy, User, Play, Pause, CheckCircle, Users, BarChart3, Eye, Edit, FileText, Target, Calendar } from "lucide-react";
 import Header from "./student/Header"; 
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
-const mockQuizzes = [
-  {
-    id: 1,
-    title: "Data Structures & Algorithms",
-    subject: "Computer Science",
-    duration: 60,
-    questions: 25,
-    status: "available" as const,
-    dueDate: "2025-10-15",
-    attempts: 0,
-    maxAttempts: 2
-  },
-  {
-    id: 2,
-    title: "Database Management Systems",
-    subject: "Computer Science", 
-    duration: 45,
-    questions: 20,
-    status: "in-progress" as const,
-    dueDate: "2025-10-10",
-    attempts: 1,
-    maxAttempts: 2,
-    progress: 65
-  },
-  {
-    id: 3,
-    title: "Operating Systems Fundamentals",
-    subject: "Computer Science",
-    duration: 90,
-    questions: 30,
-    status: "completed" as const,
-    dueDate: "2025-10-05",
-    attempts: 1,
-    maxAttempts: 1,
-    score: 85
-  }
-];
+// StudentTest interface matching API response
+interface StudentTest {
+  test_id: number;
+  title: string;
+  description: string;
+  subject: string;
+  num_questions: number;
+  duration_minutes: number;
+  status: string;
+  is_active: number;
+  created_at?: string;
+  faculty_name?: string;
+  department_name?: string;
+  dept_short_name?: string;
+  year?: string;
+  date?: string;
+  time_slot?: string;
+  topic_title?: string;
+  sub_topic_title?: string;
+}
+
+// Mock data will be replaced by real studentTests from API
 
 const mockStats = {
   totalQuizzes: 15,
@@ -76,71 +62,79 @@ const getStatusBadge = (status: string) => {
   );
 };
 
-const mockQuizzesSection = ({ quizzes }: { quizzes: typeof mockQuizzes }) => (
+const getDifficultyLevel = (totalQuestions: number) => {
+  if (totalQuestions <= 20) return 'Beginner';
+  if (totalQuestions <= 35) return 'Medium';
+  return 'Advanced';
+};
+
+const formatDuration = (timeLimit: number) => {
+  if (timeLimit >= 60) {
+    const hours = Math.floor(timeLimit / 60);
+    const minutes = timeLimit % 60;
+    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+  }
+  return `${timeLimit}m`;
+};
+
+const studentTestsSection = ({ tests, navigate }: { tests: StudentTest[]; navigate: (path: string) => void }) => (
   <div className="space-y-4">
-    {quizzes.map((quiz) => (
-      <div key={quiz.id} className="flex items-center justify-between p-4 border border-border rounded-lg bg-background">
-        <div className="flex-1">
-          <div className="flex items-center gap-3 mb-2">
-            <h3 className="font-medium text-foreground">{quiz.title}</h3>
-            {getStatusBadge(quiz.status)}
-          </div>
-          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-            <span className="flex items-center gap-1">
-              <BookOpen className="h-4 w-4" />
-              {quiz.questions} questions
-            </span>
-            <span className="flex items-center gap-1">
-              <Clock className="h-4 w-4" />
-              {quiz.duration} minutes
-            </span>
-            <span>Due: {quiz.dueDate}</span>
-            <span>Attempts: {quiz.attempts}/{quiz.maxAttempts}</span>
-          </div>
-          {quiz.status === "in-progress" && quiz.progress && (
-            <div className="mt-2">
-              <div className="flex items-center justify-between text-sm mb-1">
-                <span className="text-muted-foreground">Progress</span>
-                <span className="text-foreground">{quiz.progress}%</span>
-              </div>
-              <div className="w-full bg-muted rounded-full h-2">
-                <div 
-                  className="bg-warning h-2 rounded-full" 
-                  style={{ width: `${quiz.progress}%` }}
-                />
-              </div>
-            </div>
-          )}
-          {quiz.status === "completed" && quiz.score && (
-            <div className="mt-2">
-              <span className="text-sm text-success font-medium">
-                Score: {quiz.score}%
-              </span>
-            </div>
-          )}
-        </div>
-        <div className="flex gap-2">
-          {quiz.status === "available" && (
-            <Button size="sm">
-              <Play className="h-4 w-4 mr-1" />
-              Start Quiz
-            </Button>
-          )}
-          {quiz.status === "in-progress" && (
-            <Button size="sm" variant="secondary">
-              <Pause className="h-4 w-4 mr-1" />
-              Resume
-            </Button>
-          )}
-          {quiz.status === "completed" && (
-            <Button size="sm" variant="outline">
-              <Eye className="h-4 w-4 mr-1" />
-              View Results
-            </Button>
-          )}
-        </div>
+    {tests.length === 0 ? (
+      <div className="text-center py-8 text-muted-foreground">
+        <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
+        <p>No tests available for your year and department.</p>
       </div>
-    ))}
+    ) : (
+      tests.map((test) => (
+        <div key={test.test_id} className="flex items-center justify-between p-4 border border-border rounded-lg bg-background">
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-2">
+              <h3 className="font-medium text-foreground">{test.title}</h3>
+              <Badge 
+                variant={test.is_active === 1 ? 'default' : 'secondary'}
+                className={test.is_active === 1 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}
+              >
+                {test.is_active === 1 ? 'Active' : 'Inactive'}
+              </Badge>
+            </div>
+            <p className="text-sm text-muted-foreground mb-2">{test.description}</p>
+            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <BookOpen className="h-4 w-4" />
+                {test.num_questions} questions
+              </span>
+              <span className="flex items-center gap-1">
+                <Clock className="h-4 w-4" />
+                {formatDuration(test.duration_minutes)} 
+              </span>
+              <span className="flex items-center gap-1">
+                <Target className="h-4 w-4" />
+                Difficulty: {getDifficultyLevel(test.num_questions)}
+              </span>
+              {test.faculty_name && (
+                <span className="flex items-center gap-1">
+                  <User className="h-4 w-4" />
+                  By: {test.faculty_name}
+                </span>
+              )}
+              {test.created_at && (
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-4 w-4" />
+                  Created: {new Date(test.created_at).toLocaleDateString()}
+                </span>
+              )}
+            </div>
+          </div>
+          <Button 
+            variant={test.is_active === 1 ? 'default' : 'outline'}
+            disabled={test.is_active !== 1}
+            onClick={() => test.is_active === 1 && navigate(`/quiz/${test.test_id}`)}
+          >
+            {test.is_active === 1 ? 'Start Test' : 'Not Available'}
+          </Button>
+        </div>
+      ))
+    )}
   </div>
 );
 
@@ -155,6 +149,7 @@ interface Profile {
 }
 
 const StudentDashboard = () => {
+  const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState("dashboard");
   
   // Profile state
@@ -184,8 +179,16 @@ const StudentDashboard = () => {
   const [profileErrors, setProfileErrors] = useState<{ [key: string]: string }>({});
   const [passwordErrors, setPasswordErrors] = useState<{ [key: string]: string }>({});
 
+  // Tests state
+  const [tests, setTests] = useState([]);
+  const [testsLoading, setTestsLoading] = useState(false);
+  const [testsError, setTestsError] = useState("");
+
+
+
   useEffect(() => {
     fetchProfile();
+    fetchStudentTests();
   }, []);
 
   // Fetch student profile
@@ -224,6 +227,37 @@ const StudentDashboard = () => {
       setProfileError(error.message || "Failed to fetch profile. Please try again.");
     } finally {
       setProfileLoading(false);
+    }
+  };
+
+  // Fetch tests for student based on their year and department
+  const fetchStudentTests = async () => {
+    setTestsLoading(true);
+    setTestsError("");
+    try {
+      const token = localStorage.getItem('jwt_token');
+      if (!token) throw new Error('No auth token found. Please login.');
+      
+      const res = await fetch(`${API_BASE}/test/student/available`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`,
+        },
+      });
+      
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Failed to fetch tests");
+      }
+      
+      console.log('Student tests received:', data.tests); // Debug log
+      setTests(data.tests || []);
+    } catch (error: any) {
+      console.error('Tests fetch error:', error); // Debug log
+      setTestsError(error.message || "Failed to fetch tests. Please try again.");
+    } finally {
+      setTestsLoading(false);
     }
   };
 
@@ -357,6 +391,9 @@ const StudentDashboard = () => {
     }
   };
 
+  // Simple mock quizzes section for demo purposes
+
+
   return (
     <div className="min-h-screen">
       {/* Header */}
@@ -422,13 +459,13 @@ const StudentDashboard = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {mockQuizzesSection({ quizzes: mockQuizzes })}
+                {studentTestsSection({ tests: tests as StudentTest[], navigate })}
               </CardContent>
             </Card>
           </>
         )}
         {activeSection === "quizzes" && (
-          <Card>
+          <Card className="min-h-screen">
             <CardHeader>
               <CardTitle>My Quizzes</CardTitle>
               <CardDescription>
@@ -436,7 +473,7 @@ const StudentDashboard = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {mockQuizzesSection({ quizzes: mockQuizzes })}
+              {studentTestsSection({ tests: tests as StudentTest[], navigate })}
             </CardContent>
           </Card>
         )}
